@@ -6,7 +6,10 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const User = require("../model/User");
 // const Image = require("../model/uploads");
+const dotenv = require('dotenv');
 const twilio = require('twilio');
+
+dotenv.config();
 
 /**
  * @method - POST
@@ -18,65 +21,44 @@ const twilio = require('twilio');
 // twilio.authToken=829b84ab825d28c8e08c2afb204731b6
 // twilio.phoneNumber=6382306217
 
-const accountSid = 'AC0eae5615545ef1fb55585917eea8bfcf';
-const authToken = '829b84ab825d28c8e08c2afb204731b6';
-const twilioPhoneNumber = '+16193832659';
-const client = twilio(accountSid, authToken);
 
-// In-memory storage for user registration data (for demo purposes)
-const registeredUsers = new Map();
-
-// Serve static files (CSS, images, etc.) from the public directory
+// Twilio Configuration
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
 
 
 router.post('/register', async (req, res) => {
-  const { phoneNumber } = req.body;
-
-  // Generate and send OTP
-  const otp = Math.floor(1000 + Math.random() * 9000);
-
   try {
-    await sendOtp(phoneNumber, otp);
+    const { phoneNumber } = req.body;
 
-    // Store registration data in memory (you would typically use a database)
-    registeredUsers.set({
+    // Generate OTP (6 digits)
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save user data to MongoDB
+    const user = new User({
       phoneNumber,
       otp,
     });
-    await registeredUsers.save();
-    res.render('verify', { phoneNumber });
+
+    await user.save();
+
+    // Send OTP via Twilio
+    const message = await twilioClient.messages.create({
+      body: `Your OTP for registration is: ${otp}`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phoneNumber,
+    });
+
+    console.log(`OTP sent to ${phoneNumber}: ${message.sid}`);
+
+    res.status(200).json({ message: 'OTP sent successfully' });
   } catch (error) {
-    console.error('Error sending OTP:', error.message);
-    res.send('Error sending OTP. Please try again.');
+    console.error('Error during registration:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
-
-
-router.post('/verify', (req, res) => {
-  const { email, otp } = req.body;
-
-  // Check if the provided OTP matches the stored OTP
-  const user = registeredUsers.get(email);
-
-  if (user && user.otp == otp) {
-    // Registration successful, you can save the user to the database here
-    res.send('Registration successful!');
-  } else {
-    res.send('Invalid OTP. Please try again.');
-  }
-});
-
-
-
-// Function to send OTP using Twilio
-async function sendOtp(phoneNumber, otp) {
-  return client.messages.create({
-    body: `Your OTP for registration: ${otp}`,
-    from: twilioPhoneNumber,
-    to: phoneNumber,
-  });
-}
-
 
 
 
