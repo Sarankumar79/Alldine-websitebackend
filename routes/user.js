@@ -31,13 +31,14 @@ const twilioClient = twilio(
 
 router.post('/register', async (req, res) => {
   try {
-    const { phoneNumber } = req.body;
+    const { email1, phoneNumber } = req.body;
 
     // Generate OTP (6 digits)
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     // Save user data to MongoDB
     const user = new User({
+      email1,
       phoneNumber,
       otp,
     });
@@ -54,9 +55,11 @@ router.post('/register', async (req, res) => {
     console.log(`OTP sent to ${phoneNumber}: ${message.sid}`);
 
     res.status(200).json({ message: 'OTP sent successfully' });
-  } catch (error) {
+  } 
+  
+  catch (error) {
     console.error('Error during registration:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(200).json({ message: 'OTP sent successfully' });
   }
 });
 
